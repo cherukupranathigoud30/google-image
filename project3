@@ -1,0 +1,56 @@
+import requests
+import re
+import os
+from bs4 import BeautifulSoup
+
+def google_image_downloader(search_term, num_images=5, output_dir="."):
+    """
+    Downloads a specified number of images from Google Images based on a search term.
+
+    Args:
+        search_term (str): The term to search for on Google Images.
+        num_images (int, optional): The number of images to download. Defaults to 5.
+        output_dir (str, optional): The directory to save the downloaded images. Defaults to the current directory.
+    """
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    search_url = f"https://www.google.com/search?q={search_term}&source=lnms&tbm=isch"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+
+    response = requests.get(search_url, headers=headers)
+    response.raise_for_status()  # Raise an exception for bad status codes
+
+    soup = BeautifulSoup(response.content, "html.parser")
+    image_tags = soup.find_all("img", class_="Q4LuWd") # Adjust class name if needed
+
+    image_urls = []
+    for img in image_tags:
+        if img.has_attr('src'):
+            image_urls.append(img['src'])
+
+    
+    for i, image_url in enumerate(image_urls[:num_images]):
+        try:
+            image_response = requests.get(image_url, stream=True, headers=headers)
+            image_response.raise_for_status()
+
+            image_name = f"{search_term.replace(' ', '_')}_{i+1}.jpg"
+            image_path = os.path.join(output_dir, image_name)
+
+            with open(image_path, "wb") as file:
+                for chunk in image_response.iter_content(chunk_size=8192):
+                    file.write(chunk)
+            print(f"Downloaded image {i+1}: {image_path}")
+
+        except requests.exceptions.RequestException as e:
+            print(f"Error downloading image {i+1}: {e}")
+
+
+if __name__ == "__main__":
+    search_term = "puppies"
+    num_images_to_download = 3
+    output_directory = "downloaded_images"
+    google_image_downloader(search_term, num_images_to_download, output_directory)
